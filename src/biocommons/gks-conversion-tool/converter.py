@@ -12,20 +12,26 @@ _logger = logging.getLogger(__name__)
 HL7V2 = {
     "VARIANT_NAME": "504",
     "DISCRETE_VARIANT": "505",
+    # required - needed as 1, 2, 3, 4, X, Y, etc
     "CHROMOSOME": "510",
     "ALLELE_START": "511.1",
     "ALLELE_END": "511.2",
     "DNA_REGION": "513",
+    # required
     "GENE_STUDIED": "514",
     "TRANSCRIPT_REFERENCE_SEQUENCE_ID": "516",
+    # required
     "DNA_CHANGE": "518",
+    # required
     "AMINO_ACID_CHANGE": "520",
     "MOLECULAR_CONSEQUENCE": "521",
     "PROTEIN_REFERENCE_SEQUENCE": "522",
+    # required? - refseq for genomic change (ex: NC_000023.11)
     "GENOMIC_REFERENCE_SEQUENCE_ID": "524",
     # "AMPLIFICATION": "525", Not supporting in proof of concept - this is for CNVs and we are not handling those yet (only simply variants)
     "REFERENCE_ALLELE": "526",
     "OBSERVED_ALLELE": "527",
+    # required
     "GENOMIC_DNA_CHANGE": "528",
     "CYTOGENETIC_LOCATION": "532",
     "PENETRANCE": "534",
@@ -37,6 +43,10 @@ HL7V2 = {
     "STRUCTURAL_OUTER_END": "547.2",
     "COPY_NUMBER": "550",
     # "FUSED_GENES": "551", Not supported until Cat-VRS 2.0
+    # hardcoded to "detected" for now - this is sample specific / unsure where to get from VA-Spec
+    # required
+    "VARIANT_ASSESSMENT": "552",
+    # required
     "VARIANT_CLASSIFICATION": "553",
     "INTERPRETATION": "554",
     "MODE_OF_INHERITANCE": "560",
