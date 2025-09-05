@@ -23,7 +23,7 @@ HL7V2 = {
     "MOLECULAR_CONSEQUENCE": "521",
     "PROTEIN_REFERENCE_SEQUENCE": "522",
     "GENOMIC_REFERENCE_SEQUENCE_ID": "524",
-    # "AMPLIFICATION": "525", TODO: I don't think we can go from GKS to this yet / no guarantee this is in extensions
+    # "AMPLIFICATION": "525", Not supporting in proof of concept - this is for CNVs and we are not handling those yet (only simply variants)
     "REFERENCE_ALLELE": "526",
     "OBSERVED_ALLELE": "527",
     "GENOMIC_DNA_CHANGE": "528",
@@ -40,7 +40,7 @@ HL7V2 = {
     "VARIANT_CLASSIFICATION": "553",
     "INTERPRETATION": "554",
     "MODE_OF_INHERITANCE": "560",
-    # This one has a dashed arrow but I can't remember why :(
+    # Experimental functional effect in va-spec
     "FUNCTIONAL_EFFECT": "561",
     "REPEAT_NUCLEOTIDES": "564",
     "REPEAT_NUMBER": "565",
@@ -76,6 +76,7 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
     genomic_allele, genomic_location = _find_genomic_allele_and_location(members)
 
     # Get hgvs.g expression from the allele (e.g., 'NC_000007.13:g.140453136A>T')
+    # use seqrepo here instead
     expression = _find_expression(genomic_allele, syntax="hgvs.g")
     hgvs_g = expression.value if expression else None
     chromosome, g_dot = _parse_hgvs_g(hgvs_g)
@@ -93,7 +94,7 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
 
     # 520 - Amino Acid Change
 
-    # 521 - Molecular Consequence
+    # 521 - Molecular Consequence - on hold until approved
 
     # 522 - Protein Reference Sequence
 
@@ -156,7 +157,7 @@ def _find_genomic_allele_and_location(
     From a list of members, return the first (allele, location)
     whose location.sequenceReference.moleculeType == 'genomic'.
     # TODO: not sure if this is a reliable field to check for getting the genomic alleles -
-    # consider checking expressions instead or as a backup.
+    # consider checking expressions instead or as a backup. -> yes
     """
     for allele in members:
         location = allele.location
@@ -165,6 +166,7 @@ def _find_genomic_allele_and_location(
         seq_ref = location.sequenceReference
         molecule_type = seq_ref.moleculeType if seq_ref else None
         # TODO: it would be nice to make this helper take this as a parameter for more potential usability later
+        # TODO: use seq refget and lookup in seqrepo to get hgvs.g
         if molecule_type == "genomic":
             return allele, location
     return None
@@ -203,7 +205,6 @@ def _parse_hgvs_g(hgvs_g_value: str) -> tuple[str, str]:
 
     Expected styles:
       - 'NC_000007.13:g.140453136A>T'
-    # TODO: should we also accept 'chr7:g....' or '7:g....'?
 
     Returns:
       (chromosome, g_dot) where chromosome is the left of ':', and g_dot includes 'g.' onwards.
