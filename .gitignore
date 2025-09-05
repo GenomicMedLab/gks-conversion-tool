@@ -86,6 +86,7 @@ profile_default/
 sdist/
 share/python-wheels/
 target/
+uv.lock
 var/
 venv.bak/
 venv/

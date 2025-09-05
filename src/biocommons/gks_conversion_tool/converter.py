@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from ga4gh.cat_vrs.models import Constraint
 from ga4gh.va_spec.base.core import Statement
 from ga4gh.vrs.models import Allele, Expression, SequenceLocation
 
@@ -82,27 +83,39 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
     # 505 - Discrete Genetic Variant (placeholder until models solidify)
     # TODO: need to wait for models for this or find out what expected format is
 
-    members = subject_variant.members or []
-    genomic_allele, genomic_location = _find_genomic_allele_and_location(members)
+    constraints = subject_variant.constraints or []
+    allele, location = None, None
+    if constraints:
+        allele, location = _find_genomic_allele_and_location(constraints)
+    else:
+        err = "subjectVariant.constraints is missing or empty"
+        raise ValueError(err)
 
     # Get hgvs.g expression from the allele (e.g., 'NC_000007.13:g.140453136A>T')
     # use seqrepo here instead
-    expression = _find_expression(genomic_allele, syntax="hgvs.g")
-    hgvs_g = expression.value if expression else None
-    chromosome, g_dot = _parse_hgvs_g(hgvs_g)
+    genomic_expression = _find_expression(allele, syntax="hgvs.g")
+    hgvs_g = genomic_expression.value if genomic_expression else None
+    chromosome_ref_seq, g_dot = _parse_hgvs_dot(hgvs_g)
 
     # 511 - Allele start/end
-    allele_start, allele_end = _get_location_interval(genomic_location)
+    allele_start, allele_end = _get_location_interval(location)
 
     # 513 - DNA Region
 
     # 514 - Gene Studied
+    gene_studied = proposition.geneContextQualifier.name
 
     # 516 - Transcript Reference Sequence ID
 
     # 518 - DNA Change
+    coding_expression = _find_expression(allele, syntax="hgvs.c")
+    hgvs_c = coding_expression.value if coding_expression else None
+    c_dot = _parse_hgvs_dot(hgvs_c)[1]
 
     # 520 - Amino Acid Change
+    protein_expression = _find_expression(allele, syntax="hgvs.p")
+    hgvs_p = protein_expression.value if protein_expression else None
+    p_dot = _parse_hgvs_dot(hgvs_p)[1]
 
     # 521 - Molecular Consequence - on hold until approved
 
@@ -148,11 +161,17 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
 
     # 575 - Interpretation Note
 
-    result: dict[str, Any] = {}
-    result[HL7V2["VARIANT_NAME"]] = variant_name
-    result[HL7V2["CHROMOSOME"]] = chromosome
-    result[HL7V2["ALLELE_START"]] = allele_start
-    result[HL7V2["ALLELE_END"]] = allele_end
+    result: dict[str, Any] = HL7V2.copy()  # start with all keys
+    result["VARIANT_NAME"] = variant_name
+    # TODO: this needs to be converted to shorthand
+    result["CHROMOSOME"] = chromosome_ref_seq
+    result["ALLELE_START"] = allele_start
+    result["ALLELE_END"] = allele_end
+    result["GENE_STUDIED"] = gene_studied
+    result["DNA_CHANGE"] = c_dot
+    result["AMINO_ACID_CHANGE"] = p_dot
+    result["GENOMIC_DNA_CHANGE"] = g_dot
+    result["GENOMIC_REFERENCE_SEQUENCE_ID"] = chromosome_ref_seq
 
     return result
 
@@ -161,24 +180,19 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
 
 
 def _find_genomic_allele_and_location(
-    members: list[Allele],
+    constraints: list[Constraint],
 ) -> tuple[Allele, SequenceLocation] | None:
     """
-    From a list of members, return the first (allele, location)
-    whose location.sequenceReference.moleculeType == 'genomic'.
-    # TODO: not sure if this is a reliable field to check for getting the genomic alleles -
-    # consider checking expressions instead or as a backup. -> yes
+    From a list of constraints, return the first (allele, location)
     """
-    for allele in members:
+    for constraint in constraints:
+        if constraint.root.type != "DefiningAlleleConstraint":
+            continue
+        allele = constraint.root.allele
         location = allele.location
         if location is None:
             continue
-        seq_ref = location.sequenceReference
-        molecule_type = seq_ref.moleculeType if seq_ref else None
-        # TODO: it would be nice to make this helper take this as a parameter for more potential usability later
-        # TODO: use seq refget and lookup in seqrepo to get hgvs.g
-        if molecule_type == "genomic":
-            return allele, location
+        return allele, location
     return None
 
 
@@ -190,7 +204,7 @@ def _find_expression(allele: Allele, syntax: str) -> Expression | None:
     expressions = allele.expressions or []
 
     for expr in expressions:
-        s = expr.get("syntax")
+        s = expr.syntax
         if s == syntax:
             return expr
     # TODO: raise error?
@@ -209,16 +223,16 @@ def _get_location_interval(location: SequenceLocation) -> tuple[int, int]:
 # --- Helpers: transformation / parsing ---------------------------------------
 
 
-def _parse_hgvs_g(hgvs_g_value: str) -> tuple[str, str]:
+def _parse_hgvs_dot(hgvs_value: str) -> tuple[str, str]:
     """
-    Parse an hgvs.g expression.
+    Parse an hgvs.(g,c,p) expression.
 
     Expected styles:
       - 'NC_000007.13:g.140453136A>T'
 
     Returns:
-      (chromosome, g_dot) where chromosome is the left of ':', and g_dot includes 'g.' onwards.
+      (chromosome, dot) where chromosome is the left of ':', and dot includes g.,c.,or p. onwards.
     """
-    chromosome, g_dot = hgvs_g_value.split(":", 1)
+    chromosome, dot = hgvs_value.split(":", 1)
 
-    return chromosome, g_dot
+    return chromosome, dot
