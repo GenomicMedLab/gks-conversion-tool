@@ -98,6 +98,8 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
     chromosome_ref_seq, g_dot = _parse_hgvs_dot(hgvs_g)
 
     # 511 - Allele start/end
+    # to get genomic allele,
+    # get the seqRef Id, give to seqrepo, convert to different namespace, check prefix
     allele_start, allele_end = _get_location_interval(location)
 
     # 513 - DNA Region
@@ -144,6 +146,7 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
     # 550 - Copy Number
 
     # 553 - Variant Classification
+    variant_classification = statement.classification
 
     # 554 - Interpretation
 
@@ -172,6 +175,7 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
     result["AMINO_ACID_CHANGE"] = p_dot
     result["GENOMIC_DNA_CHANGE"] = g_dot
     result["GENOMIC_REFERENCE_SEQUENCE_ID"] = chromosome_ref_seq
+    result["VARIANT_CLASSIFICATION"] = variant_classification
 
     return result
 
