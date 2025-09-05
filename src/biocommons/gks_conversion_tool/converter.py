@@ -92,14 +92,13 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
         raise ValueError(err)
 
     # Get hgvs.g expression from the allele (e.g., 'NC_000007.13:g.140453136A>T')
-    # use seqrepo here instead
     genomic_expression = _find_expression(allele, syntax="hgvs.g")
     hgvs_g = genomic_expression.value if genomic_expression else None
+    # 524 - Genomic Reference Sequence ID
     chromosome_ref_seq, g_dot = _parse_hgvs_dot(hgvs_g)
 
     # 511 - Allele start/end
-    # to get genomic allele,
-    # get the seqRef Id, give to seqrepo, convert to different namespace, check prefix
+    # to get genomic allele, get the seqRef Id, give to seqrepo, convert to ncbi namespace, check prefix for NC or NG
     allele_start, allele_end = _get_location_interval(location)
 
     # 513 - DNA Region
@@ -119,11 +118,10 @@ def convert_gks_to_hl7_v2(statement: Statement) -> dict[str, Any]:
     hgvs_p = protein_expression.value if protein_expression else None
     p_dot = _parse_hgvs_dot(hgvs_p)[1]
 
-    # 521 - Molecular Consequence - on hold until approved
+    # 521 - Molecular Consequence - on hold until approved in va-spec
 
     # 522 - Protein Reference Sequence
-
-    # 524 - Genomic Reference Sequence ID
+    # get protein allele, get refGetAccession, use seqrepo to convert to ncbi namespace
 
     # 526 - Reference Allele
 
